@@ -23,9 +23,13 @@ SCOPE = app.get('scope')
 SRC_GROUP_ID = int(app.get('src_group_id'))
 DST_GROUP_ID = int(app.get('dst_group_id'))
 FORBIDDEN_ALBUMS = app.get('forbidden_albums').split(',')
+COMMUNITY_TAG = app.get('community_tag')
+TARGET_POST_TAGS = app.get('target_post_tags').split(',')
 
 files = config['files']
 DST_ABSPATH = files.get('dst_abspath')
+TMP_ABSPATH = files.get('tmp_abspath')
+PHANTOMJS_PATH = files.get('phantomjs_path')
 
 database = config['database']
 DATABASE_URL = url.make_url(database['database_url'])
