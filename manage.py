@@ -1,14 +1,16 @@
 import logging
 import os
 import random
+import time
 
 import PIL.Image
 import click
 import vk.exceptions
 from selenium import webdriver
-from vk_app.attachables import VKPhoto
-from vk_app.services import download, LoggingConfig
-from vk_app.utils import make_delayed, make_periodic
+from vk_app.app import captchured
+from vk_app.models import VKAudio
+from vk_app.services import download
+from vk_app.utils import make_delayed, make_periodic, set_logging_config
 from vk_community.app import CommunityApp
 from vk_community.models import Base, Audio
 from vk_community.services.data_access import DataAccessObject
@@ -30,8 +32,6 @@ Audio.load_lyrics = make_delayed(2 * (PAGE_LOAD_TIME_IN_SEC + PAGE_WAIT_TIME_IN_
 
 @click.group(name='run', invoke_without_command=False)
 def run():
-    logging_config = LoggingConfig(BASE_DIR, LOGGING_CONFIG_PATH, LOGS_PATH)
-    logging_config.set()
     pass
 
 
@@ -159,5 +159,43 @@ def init_db():
     Base.metadata.create_all(dao.engine)
 
 
+@run.command(name='sync_audios')
+@captchured()
+def sync_audios(**params):
+    community_app = CommunityApp(APP_ID, DST_GROUP_ID, USER_LOGIN, USER_PASSWORD, SCOPE)
+
+    dst_audios = list(VKAudio.from_raw(raw_audio)
+                      for raw_audio in community_app.get_all_objects('audio.get',
+                                                                     owner_id=-DST_GROUP_ID, **params))
+
+    src_albums = community_app.get_all_objects('audio.getAlbums', owner_id=-SRC_GROUP_ID, **params)
+    dst_albums = community_app.get_all_objects('audio.getAlbums', owner_id=-DST_GROUP_ID, **params)
+    dst_albums_ids_by_src = dict()
+    for src_album in src_albums:
+        try:
+            album_id = next(album['id'] for album in dst_albums if album['title'] == src_album['title'])
+        except StopIteration:
+            album_id = community_app.api_session.audio.addAlbum(group_id=DST_GROUP_ID,
+                                                                title=src_album['title'], **params)['album_id']
+            time.sleep(5)
+        dst_albums_ids_by_src[src_album['id']] = album_id
+
+    audios = list(dict(audio_id=raw_audio['id'], owner_id=raw_audio['owner_id'],
+                       album_id=dst_albums_ids_by_src[album['id']])
+                  for album in src_albums
+                  for raw_audio in community_app.get_all_objects('audio.get',
+                                                                 owner_id=-SRC_GROUP_ID,
+                                                                 album_id=album['id'],
+                                                                 **params)
+                  if not any(raw_audio['artist'] == audio.artist and
+                             raw_audio['title'] == audio.title
+                             for audio in dst_audios))
+
+    for audio in audios:
+        community_app.api_session.audio.add(group_id=DST_GROUP_ID, **audio, **params)
+        time.sleep(0.5)
+
+
 if __name__ == '__main__':
+    set_logging_config(BASE_DIR, LOGGING_CONFIG_PATH, LOGS_PATH)
     run()
