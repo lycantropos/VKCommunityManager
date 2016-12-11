@@ -21,7 +21,8 @@ from settings import (DATABASE_URL, BASE_DIR, LOGGING_CONFIG_PATH, LOGS_PATH,
                       COMMUNITY_TAG, TARGET_POST_TAGS)
 from settings import (DAY_IN_SEC, MINIMAL_INTERVAL_BETWEEN_DOWNLOAD_REQUESTS_IN_SECONDS,
                       POSTING_PERIOD_IN_SEC)
-from settings import (DST_GROUP_ID, SRC_GROUP_ID, APP_ID, USER_LOGIN, USER_PASSWORD, SCOPE, FORBIDDEN_ALBUMS,
+from settings import (DST_GROUP_ID, SRC_GROUP_ID, APP_ID, USER_LOGIN, USER_PASSWORD,
+                      SCOPE, FORBIDDEN_ALBUMS,
                       DST_ABSPATH, WATERMARK_PATH)
 
 PAGE_LOAD_TIME_IN_SEC = 5
@@ -60,8 +61,8 @@ def post_selector(post):
         processed_posts = processed_posts_file.read().split('\n')
     if post.vk_id not in processed_posts and \
             any(tag in post.text for tag in TARGET_POST_TAGS) and \
-                    post.attachments is not None and \
-                    len(post.attachments) == 6:
+            post.attachments is not None and \
+            len(post.attachments) == 6:
         return True
     else:
         return False
